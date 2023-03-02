@@ -25,6 +25,8 @@ import sys
 import codecs
 sys.path.append('..')
 from utils import evaluate_topic_quality, smooth_curve
+from torch.utils.tensorboard import SummaryWriter
+
 
 class EVAE(VAE):
     def __init__(self, encode_dims=[2000,1024,512,20],decode_dims=[20,1024,2000],dropout=0.0,emb_dim=300):
@@ -54,6 +56,7 @@ class ETM:
         self.device = device
         self.id2token = None
         self.taskname = taskname
+        self.writer = SummaryWriter()
         if device!=None:
             self.vae = self.vae.to(device)
 
@@ -112,10 +115,17 @@ class ETM:
                 trainloss_lst.append(loss.item()/len(bows))
                 epochloss_lst.append(loss.item()/len(bows))
                 if (iter+1) % 10==0:
-                    print(f'Epoch {(epoch+1):>3d}\tIter {(iter+1):>4d}\tLoss:{loss.item()/len(bows):<.7f}\tRec Loss:{rec_loss.item()/len(bows):<.7f}\tKL Div:{kl_div.item()/len(bows):<.7f}')
+                    print(f'Epoch {(epoch+1):>3d}\tIter {(iter+1):>4d}\tLoss:{loss.item()/len(bows):<.7f}\t'
+                          f'Rec Loss:{rec_loss.item()/len(bows):<.7f}\tKL Div:{kl_div.item()/len(bows):<.7f}')
+                    self.writer.add_scalar('Loss/train', loss.item()/len(bows), epoch*len(data_loader)+iter)
+                    self.writer.add_scalar('Reconstruct Loss/train', rec_loss.item()/len(bows), epoch*len(data_loader)+iter)
+                    self.writer.add_scalar('KL Divergence/train', kl_div.item()/len(bows), epoch*len(data_loader)+iter)
             #scheduler.step()
             if (epoch+1) % log_every==0:
-                save_name = f'./ckpt/ETM_{self.taskname}_tp{self.n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_ep{epoch+1}.ckpt'
+                prefix = "/scratch/16206782/news_recommendation/saved/models/ckpt"
+                # prefix = "./ckpt"
+                save_name = f'{prefix}/ETM_{self.taskname}_tp{self.n_topic}_' \
+                            f'{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_ep{epoch+1}.ckpt'
                 checkpoint = {
                     "net": self.vae.state_dict(),
                     "optimizer": optimizer.state_dict(),
@@ -127,6 +137,8 @@ class ETM:
                         "emb_dim": self.emb_dim
                     }
                 }
+                if not os.path.exists(prefix):
+                    os.makedirs(prefix, exist_ok=True)
                 torch.save(checkpoint,save_name)
                 # The code lines between this and the next comment lines are duplicated with WLDA.py, consider to simpify them.
                 print(f'Epoch {(epoch+1):>3d}\tLoss:{sum(epochloss_lst)/len(epochloss_lst):<.7f}')
@@ -139,9 +151,13 @@ class ETM:
                 plt.savefig('gsm_trainloss.png')
                 if test_data!=None:
                     c_v,c_w2v,c_uci,c_npmi,mimno_tc, td = self.evaluate(test_data,calc4each=False)
+                    self.writer.add_scalar('Coherence/c_v', c_v, epoch)
+                    self.writer.add_scalar('Coherence/topic diversity', td, epoch)
+                    self.writer.add_scalar('Coherence/NPMI', c_npmi, epoch)
                     c_v_lst.append(c_v), c_w2v_lst.append(c_w2v), c_uci_lst.append(c_uci),c_npmi_lst.append(c_npmi), mimno_tc_lst.append(mimno_tc), td_lst.append(td)
-                save_name = f'./ckpt/ETM_{self.taskname}_tp{self.n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
+                save_name = f'{prefix}/ETM_{self.taskname}_tp{self.n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
                 torch.save(self.vae.state_dict(),save_name)
+        self.writer.flush()
         scrs = {'c_v':c_v_lst,'c_w2v':c_w2v_lst,'c_uci':c_uci_lst,'c_npmi':c_npmi_lst,'mimno_tc':mimno_tc_lst,'td':td_lst}
         '''
         for scr_name,scr_lst in scrs.items():

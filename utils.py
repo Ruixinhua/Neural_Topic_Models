@@ -15,6 +15,7 @@ import gensim
 import numpy as np
 from gensim.models.coherencemodel import CoherenceModel
 
+
 def get_topic_words(model,topn=15,n_topic=10,vocab=None,fix_topic=None,showWght=False):
     topics = []
     def show_one_tp(tp_idx):
@@ -105,7 +106,7 @@ def evaluate_topic_quality(topic_words, test_data, taskname=None, calc4each=Fals
     
     td_score = calc_topic_diversity(topic_words)
     print(f'topic diversity:{td_score}')
-    
+
     (c_v, c_w2v, c_uci, c_npmi),\
         (cv_per_topic, c_w2v_per_topic, c_uci_per_topic, c_npmi_per_topic) = \
         calc_topic_coherence(topic_words=topic_words, docs=test_data.docs, dictionary=test_data.dictionary,

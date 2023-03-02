@@ -89,7 +89,9 @@ class WTM:
                     print(f'Epoch {(epoch+1):>3d}\tIter {(iter+1):>4d}\tLoss:{loss.item()/len(bows):<.7f}\tRec Loss:{rec_loss.item()/len(bows):<.7f}\tMMD:{mmd.item()/len(bows):<.7f}')
             #scheduler.step()
             if (epoch+1) % log_every == 0:
-                save_name = f'./ckpt/WTM_{self.taskname}_tp{self.n_topic}_{self.dist}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_{epoch+1}.ckpt'
+                prefix = "/scratch/16206782/news_recommendation/saved/models/ckpt"
+                # prefix = "./ckpt"
+                save_name = f'{prefix}/WTM_{self.taskname}_tp{self.n_topic}_{self.dist}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_{epoch+1}.ckpt'
                 checkpoint = {
                     "net": self.wae.state_dict(),
                     "optimizer": optimizer.state_dict(),
